@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  labels:
+    app: architrave
+spec:
+  ports:
+    - port: 3306
+      protocol: TCP
+  selector:
+    app: architrave
+    tier: mysql
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pv-claim
+  labels:
+    app: architrave
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: mysql
+  labels:
+    app: architrave
+spec:
+  selector:
+    matchLabels:
+      app: architrave
+      tier: mysql
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: architrave
+        tier: mysql
+    spec:
+      containers:
+      - image: titanlien/architrave-db:20181117081006
+        name: mysql
+        command: ["/scripts/start.sh"]
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-pass
+              key: password
+        - name: MYSQL_DATABASE
+          value: assignment
+        - name: MYSQL_USER_MONITORING
+          value: assignment-read
+        - name: MYSQL_PASSWORD_MONITORING
+          value: local2
+        - name: MYSQL_USER
+          value: assignment
+        - name: MYSQL_PASSWORD
+          value: assignment
+        ports:
+        - containerPort: 3306
+          name: mysql
+        volumeMounts:
+        - name: mysql-persistent-storage
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: mysql-persistent-storage
+        persistentVolumeClaim:
+          claimName: mysql-pv-claim
